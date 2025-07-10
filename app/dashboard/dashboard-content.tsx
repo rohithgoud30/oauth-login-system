@@ -286,16 +286,20 @@ export function DashboardContent() {
 				<InactivityTimeoutModal
 					isOpen={showInactivityModal}
 					onStay={handleStay}
-					onLogout={handleLogout}
+					onLogout={() => {
+						tokenManager.clearSession();
+						tokenManager.clearClientSession();
+						router.push("/login");
+					}}
 					countdown={countdown}
 				/>
 
-				<LogoutModal 
-			isOpen={showLogoutModal} 
-			onClose={redirectToLogin}
-			title="Session Expired"
-			message="Your session has expired due to inactivity or client timeout."
-		/>
+				<LogoutModal
+					isOpen={showLogoutModal}
+					onClose={redirectToLogin}
+					title="Session Expired"
+					message="Your session has expired due to inactivity or client timeout."
+				/>
 
 				{/* User Profile and Token Info */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

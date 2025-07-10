@@ -54,10 +54,10 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en" className={inter.variable}>
-			<body className={`${inter.className} antialiased`}>
-				<div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-					{children}
-				</div>
+			<body
+				className={`${inter.className} min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 antialiased`}
+			>
+				{children}
 			</body>
 		</html>
 	);
