@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
 	tokenManager,
@@ -34,6 +34,7 @@ import {
 import { TokenDisplay } from "@/components/ui/token-display";
 import { UserCard } from "@/components/ui/user-card";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { InactivityTimeoutModal } from "@/components/ui/inactivity-modal";
 
 export function DashboardContent() {
 	const router = useRouter();
@@ -48,17 +49,55 @@ export function DashboardContent() {
 	const [verificationMethod, setVerificationMethod] = useState<
 		"client-session" | "provider-check" | "none"
 	>("none");
+	const [showInactivityModal, setShowInactivityModal] = useState(false);
+	const [countdown, setCountdown] = useState(60);
+	const countdownIntervalRef = useRef<NodeJS.Timeout>();
 
-	const handleLogout = () => {
+	const handleLogout = useCallback(() => {
 		tokenManager.clearSession();
 		tokenManager.clearClientSession();
+		if (countdownIntervalRef.current) {
+			clearInterval(countdownIntervalRef.current);
+		}
 		router.push("/login");
-	};
+	}, [router]);
 
-	useInactivityTimeout({
+	const startCountdown = useCallback(() => {
+		setShowInactivityModal(true);
+		if (countdownIntervalRef.current) {
+			clearInterval(countdownIntervalRef.current);
+		}
+
+		let seconds = 60;
+		setCountdown(seconds);
+
+		countdownIntervalRef.current = setInterval(() => {
+			seconds--;
+			setCountdown((prev) => prev - 1);
+			if (seconds <= 0) {
+				handleLogout();
+			}
+		}, 1000);
+	}, [handleLogout]);
+
+	const { resetTimer } = useInactivityTimeout({
 		timeout: 300000, // 5 minutes
+		onWarning: startCountdown,
 		onTimeout: handleLogout,
 	});
+
+	const handleStay = useCallback(() => {
+		if (session && tokenManager.isTokenExpired(session.tokens)) {
+			handleLogout();
+			return;
+		}
+
+		setShowInactivityModal(false);
+		if (countdownIntervalRef.current) {
+			clearInterval(countdownIntervalRef.current);
+		}
+		resetTimer();
+	}, [session, handleLogout, resetTimer]);
 
 	useEffect(() => {
 		const checkAndSetSession = async () => {
@@ -211,6 +250,9 @@ export function DashboardContent() {
 						</p>
 					</div>
 					<div className="flex items-center gap-3">
+						<Button onClick={startCountdown} variant="secondary">
+							Demo Inactivity
+						</Button>
 						<Button
 							onClick={handleLogout}
 							variant="outline"
@@ -221,6 +263,13 @@ export function DashboardContent() {
 						</Button>
 					</div>
 				</div>
+
+				<InactivityTimeoutModal
+					isOpen={showInactivityModal}
+					onStay={handleStay}
+					onLogout={handleLogout}
+					countdown={countdown}
+				/>
 
 				{/* User Profile and Token Info */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

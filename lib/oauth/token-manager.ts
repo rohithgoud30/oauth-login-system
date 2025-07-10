@@ -44,8 +44,8 @@ const CLIENT_SESSION_KEY = "client_session";
 const STATE_KEY = "oauth_state";
 const PROVIDER_KEY = "oauth_provider";
 
-// Client session duration: 5 minutes
-const CLIENT_SESSION_DURATION = 5 * 60 * 1000;
+// Client session duration: 10 minutes
+const CLIENT_SESSION_DURATION = 10 * 60 * 1000;
 
 export class TokenManager {
 	private static instance: TokenManager;
