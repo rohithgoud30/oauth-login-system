@@ -19,7 +19,7 @@ import { useState, useEffect } from "react";
 import { Loader2, MessageSquare, Chrome, Github } from "lucide-react";
 
 interface LoginButtonProps {
-	provider: "discord" | "github";
+	provider: "discord" | "github" | "google";
 	onLogin?: (provider: string, authUrl: string) => void;
 }
 
@@ -39,6 +39,13 @@ const providerConfig = {
 		color: "bg-[#24292e] hover:bg-[#1a1e22]",
 		icon: Github,
 		description: "Sign in with GitHub",
+		available: true,
+	},
+	google: {
+		name: "Google",
+		color: "bg-[#4285F4] hover:bg-[#357AE8]",
+		icon: Chrome,
+		description: "Sign in with your Google account",
 		available: true,
 	},
 };

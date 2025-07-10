@@ -62,6 +62,14 @@ export class TokenManager {
 	// Session management
 	saveSession(session: UserSession): void {
 		if (typeof window !== "undefined") {
+			const existingSession = this.getSessionFromStorage();
+			if (
+				existingSession &&
+				!session.tokens.refresh_token &&
+				existingSession.tokens.refresh_token
+			) {
+				session.tokens.refresh_token = existingSession.tokens.refresh_token;
+			}
 			localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 			// Create client session when saving user session
 			this.createClientSession(session.user.id);
@@ -71,43 +79,47 @@ export class TokenManager {
 	getSession(): UserSession | null {
 		if (typeof window === "undefined") return null;
 
+		const session = this.getSessionFromStorage();
+		if (!session) return null;
+
+		// Check if token is expired
+		if (this.isTokenExpired(session.tokens)) {
+			// Try to refresh the token if we have a refresh token
+			if (session.tokens.refresh_token) {
+				this.refreshToken(session.tokens.refresh_token, session.user.provider)
+					.then((newTokens) => {
+						if (newTokens) {
+							// Update session with new tokens
+							const updatedSession = {
+								...session,
+								tokens: newTokens,
+								updated_at: Date.now(),
+							};
+							this.saveSession(updatedSession);
+						} else {
+							// If refresh failed, clear session
+							this.clearSession();
+						}
+					})
+					.catch(() => {
+						this.clearSession();
+					});
+			} else {
+				this.clearSession();
+			}
+			return null;
+		}
+
+		return session;
+	}
+
+	getSessionFromStorage(): UserSession | null {
+		if (typeof window === "undefined") return null;
 		try {
 			const sessionData = localStorage.getItem(SESSION_KEY);
-			if (!sessionData) return null;
-
-			const session: UserSession = JSON.parse(sessionData);
-
-			// Check if token is expired
-			if (this.isTokenExpired(session.tokens)) {
-				// Try to refresh the token if we have a refresh token
-				if (session.tokens.refresh_token) {
-					this.refreshToken(session.tokens.refresh_token)
-						.then((newTokens) => {
-							if (newTokens) {
-								// Update session with new tokens
-								const updatedSession = {
-									...session,
-									tokens: newTokens,
-									updated_at: Date.now(),
-								};
-								this.saveSession(updatedSession);
-							} else {
-								// If refresh failed, clear session
-								this.clearSession();
-							}
-						})
-						.catch(() => {
-							this.clearSession();
-						});
-				} else {
-					this.clearSession();
-				}
-				return null;
-			}
-
-			return session;
+			return sessionData ? JSON.parse(sessionData) : null;
 		} catch (error) {
-			console.error("Error parsing session:", error);
+			console.error("Error parsing session from storage:", error);
 			this.clearSession();
 			return null;
 		}
@@ -228,6 +240,7 @@ export class TokenManager {
 				if (userSession.tokens.refresh_token) {
 					const newTokens = await this.refreshToken(
 						userSession.tokens.refresh_token,
+						userSession.user.provider,
 					);
 					if (newTokens) {
 						// Update session with new tokens
@@ -263,46 +276,42 @@ export class TokenManager {
 
 	// Token validation
 	isTokenExpired(tokens: TokenData): boolean {
-		const now = Date.now();
-		const expiresAt = tokens.expires_at;
-
-		// Add 5 minute buffer
-		const buffer = 5 * 60 * 1000;
-		return now >= expiresAt - buffer;
+		return Date.now() >= tokens.expires_at;
 	}
 
 	// Refresh token functionality
-	async refreshToken(refreshToken: string): Promise<TokenData | null> {
+	async refreshToken(
+		refreshToken: string,
+		provider: string,
+	): Promise<TokenData | null> {
+		if (typeof window === "undefined") return null;
+
 		try {
-			const response = await fetch("http://localhost:3001/oauth/token", {
+			const response = await fetch("/api/oauth/token", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					grant_type: "refresh_token",
 					refresh_token: refreshToken,
+					provider: provider,
 				}),
 			});
 
 			if (!response.ok) {
-				console.error("Failed to refresh token:", await response.text());
+				const errorData = await response.json();
+				console.error("Token refresh failed:", errorData);
+				// If refresh token is invalid, clear the session
+				if (response.status === 400) {
+					this.clearSession();
+				}
 				return null;
 			}
 
-			const tokenData = await response.json();
-
-			// Normalize token data
-			const tokens: TokenData = {
-				access_token: tokenData.access_token,
-				refresh_token: tokenData.refresh_token,
-				expires_in: tokenData.expires_in || 3600,
-				token_type: tokenData.token_type || "Bearer",
-				scope: tokenData.scope || "",
-				expires_at:
-					tokenData.expires_at ||
-					Date.now() + (tokenData.expires_in || 3600) * 1000,
-			};
+			const { tokens } = await response.json();
+			if (!tokens.refresh_token) {
+				tokens.refresh_token = refreshToken;
+			}
 
 			return tokens;
 		} catch (error) {
@@ -313,15 +322,13 @@ export class TokenManager {
 
 	// Manual refresh token method (for UI button)
 	async manualRefreshToken(): Promise<boolean> {
-		const session = this.getSession();
-		if (!session || !session.tokens.refresh_token) {
-			return false;
-		}
-
-		try {
-			const newTokens = await this.refreshToken(session.tokens.refresh_token);
+		const session = this.getSessionFromStorage();
+		if (session && session.tokens.refresh_token) {
+			const newTokens = await this.refreshToken(
+				session.tokens.refresh_token,
+				session.user.provider,
+			);
 			if (newTokens) {
-				// Update session with new tokens
 				const updatedSession = {
 					...session,
 					tokens: newTokens,
@@ -331,10 +338,8 @@ export class TokenManager {
 				return true;
 			}
 			return false;
-		} catch (error) {
-			console.error("Error manually refreshing token:", error);
-			return false;
 		}
+		return false;
 	}
 
 	// State management for CSRF protection
@@ -369,7 +374,7 @@ export class TokenManager {
 	}
 
 	getTimeUntilExpiration(tokens: TokenData): number {
-		return Math.max(0, tokens.expires_at - Date.now());
+		return this.isTokenExpired(tokens) ? 0 : tokens.expires_at - Date.now();
 	}
 
 	formatTokenExpiry(tokens: TokenData): string {

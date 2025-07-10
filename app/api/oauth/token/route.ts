@@ -86,6 +86,12 @@ const getServerOAuthConfig = cache(() => ({
 		tokenUrl: "https://github.com/login/oauth/access_token",
 		userInfoUrl: "https://api.github.com/user",
 	},
+	google: {
+		clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
+		clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+		tokenUrl: "https://oauth2.googleapis.com/token",
+		userInfoUrl: "https://www.googleapis.com/oauth2/v3/userinfo",
+	},
 }));
 
 export async function POST(request: NextRequest) {
@@ -252,6 +258,17 @@ export async function POST(request: NextRequest) {
 						? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
 						: undefined,
 					provider: "discord",
+					raw_data: userData,
+				};
+				break;
+			}
+			case "google": {
+				userProfile = {
+					id: userData.sub,
+					name: userData.name,
+					email: userData.email,
+					avatar: userData.picture,
+					provider: "google",
 					raw_data: userData,
 				};
 				break;

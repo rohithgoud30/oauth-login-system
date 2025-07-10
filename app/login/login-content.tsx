@@ -64,6 +64,7 @@ export function LoginContent() {
 				<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 					<LoginButton provider="discord" />
 					<LoginButton provider="github" />
+					<LoginButton provider="google" />
 				</div>
 			</div>
 		</div>
