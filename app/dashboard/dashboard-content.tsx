@@ -35,6 +35,7 @@ import { TokenDisplay } from "@/components/ui/token-display";
 import { UserCard } from "@/components/ui/user-card";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { InactivityTimeoutModal } from "@/components/ui/inactivity-modal";
+import { LogoutModal } from "@/components/ui/logout-modal";
 
 export function DashboardContent() {
 	const router = useRouter();
@@ -50,17 +51,23 @@ export function DashboardContent() {
 		"client-session" | "provider-check" | "none"
 	>("none");
 	const [showInactivityModal, setShowInactivityModal] = useState(false);
+	const [showLogoutModal, setShowLogoutModal] = useState(false);
 	const [countdown, setCountdown] = useState(60);
 	const countdownIntervalRef = useRef<NodeJS.Timeout>();
 
 	const handleLogout = useCallback(() => {
-		tokenManager.clearSession();
-		tokenManager.clearClientSession();
 		if (countdownIntervalRef.current) {
 			clearInterval(countdownIntervalRef.current);
 		}
+		tokenManager.clearSession();
+		tokenManager.clearClientSession();
+		setShowInactivityModal(false);
+		setShowLogoutModal(true);
+	}, []);
+
+	const redirectToLogin = () => {
 		router.push("/login");
-	}, [router]);
+	};
 
 	const startCountdown = useCallback(() => {
 		setShowInactivityModal(true);
@@ -254,7 +261,19 @@ export function DashboardContent() {
 							Demo Inactivity
 						</Button>
 						<Button
-							onClick={handleLogout}
+							onClick={() => {
+								handleLogout();
+							}}
+							variant="destructive"
+						>
+							Demo Client Session Expired
+						</Button>
+						<Button
+							onClick={() => {
+								tokenManager.clearSession();
+								tokenManager.clearClientSession();
+								router.push("/login");
+							}}
 							variant="outline"
 							className="flex items-center gap-2"
 						>
@@ -270,6 +289,13 @@ export function DashboardContent() {
 					onLogout={handleLogout}
 					countdown={countdown}
 				/>
+
+				<LogoutModal 
+			isOpen={showLogoutModal} 
+			onClose={redirectToLogin}
+			title="Session Expired"
+			message="Your session has expired due to inactivity or client timeout."
+		/>
 
 				{/* User Profile and Token Info */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
