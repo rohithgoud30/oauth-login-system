@@ -29,9 +29,11 @@ import {
 	Eye,
 	EyeOff,
 	RotateCcw,
+	Clock,
 } from "lucide-react";
 import { TokenDisplay } from "@/components/ui/token-display";
 import { UserCard } from "@/components/ui/user-card";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 export function DashboardContent() {
 	const router = useRouter();
@@ -46,6 +48,17 @@ export function DashboardContent() {
 	const [verificationMethod, setVerificationMethod] = useState<
 		"client-session" | "provider-check" | "none"
 	>("none");
+
+	const handleLogout = () => {
+		tokenManager.clearSession();
+		tokenManager.clearClientSession();
+		router.push("/login");
+	};
+
+	useInactivityTimeout({
+		timeout: 300000, // 5 minutes
+		onTimeout: handleLogout,
+	});
 
 	useEffect(() => {
 		const checkAndSetSession = async () => {
@@ -86,8 +99,8 @@ export function DashboardContent() {
 				await tokenManager.getTokenVerificationStatus();
 
 			if (!verificationStatus.verified) {
-				// Session is no longer valid
-				router.push("/login");
+				// Session is no longer valid - handled by useSessionTimeout hook
+				console.log("Session verification failed");
 			} else {
 				// Update verification method if it changed
 				setVerificationMethod(verificationStatus.method);
@@ -96,12 +109,6 @@ export function DashboardContent() {
 
 		return () => clearInterval(sessionCheckInterval);
 	}, [router]);
-
-	const handleLogout = () => {
-		tokenManager.clearSession();
-		tokenManager.clearClientSession();
-		router.push("/login");
-	};
 
 	const copyToClipboard = async (text: string, label: string) => {
 		try {
@@ -203,14 +210,16 @@ export function DashboardContent() {
 							OAuth authentication dashboard for {session.user.name}
 						</p>
 					</div>
-					<Button
-						onClick={handleLogout}
-						variant="outline"
-						className="flex items-center gap-2"
-					>
-						<LogOut className="h-4 w-4" />
-						Logout
-					</Button>
+					<div className="flex items-center gap-3">
+						<Button
+							onClick={handleLogout}
+							variant="outline"
+							className="flex items-center gap-2"
+						>
+							<LogOut className="h-4 w-4" />
+							Logout
+						</Button>
+					</div>
 				</div>
 
 				{/* User Profile and Token Info */}
