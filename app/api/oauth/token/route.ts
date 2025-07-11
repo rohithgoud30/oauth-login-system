@@ -34,14 +34,17 @@ async function saveUserToDb(userProfile: UserProfile): Promise<UserProfile> {
 
 	try {
 		// Check if user exists
-		const response = await fetch(`${dbUrl}?provider=${provider}&id=${id}`);
+		const response = await fetch(`${dbUrl}?id=${id}&provider=${provider}`);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch user: ${response.statusText}`);
+		}
 		const existingUsers = await response.json();
 
 		if (existingUsers.length > 0) {
-			// User exists, update their record (PUT)
-			const userId = existingUsers[0].id;
-			const updateResponse = await fetch(`${dbUrl}/${userId}`, {
-				method: "PUT",
+			// User exists, update their record (PATCH is more efficient than PUT)
+			const dbUserId = existingUsers[0].id;
+			const updateResponse = await fetch(`${dbUrl}/${dbUserId}`, {
+				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ ...userProfile, updatedAt: Date.now() }),
 			});
@@ -67,8 +70,53 @@ async function saveUserToDb(userProfile: UserProfile): Promise<UserProfile> {
 		}
 	} catch (error) {
 		console.error("Database operation failed:", error);
-		// Return the original profile if DB operations fail
-		return userProfile;
+		return userProfile; // Return original profile if DB ops fail
+	}
+}
+
+// Function to save or update tokens in our local DB
+async function saveOrUpdateTokenInDb(
+	tokens: TokenData,
+	userId: string,
+	provider: string,
+) {
+	const dbUrl = "http://localhost:4000/tokens";
+
+	try {
+		// Check if a token for this user and provider already exists
+		const response = await fetch(
+			`${dbUrl}?userId=${userId}&provider=${provider}`,
+		);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch token: ${response.statusText}`);
+		}
+		const existingTokens = await response.json();
+
+		const tokenPayload = {
+			...tokens,
+			userId,
+			provider,
+			updatedAt: Date.now(),
+		};
+
+		if (existingTokens.length > 0) {
+			// Token exists, update it (PATCH)
+			const dbTokenId = existingTokens[0].id; // json-server provides a unique id
+			await fetch(`${dbUrl}/${dbTokenId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(tokenPayload),
+			});
+		} else {
+			// No token found, create a new one (POST)
+			await fetch(dbUrl, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ ...tokenPayload, createdAt: Date.now() }),
+			});
+		}
+	} catch (error) {
+		console.error("Token database operation failed:", error);
 	}
 }
 
@@ -96,10 +144,11 @@ const getServerOAuthConfig = cache(() => ({
 
 export async function POST(request: NextRequest) {
 	try {
-		const { code, provider, state, refresh_token } = await request.json();
+		const { code, provider, state, refresh_token, user_id } =
+			await request.json();
 
 		// Handle refresh token flow
-		if (refresh_token && provider) {
+		if (refresh_token && provider && user_id) {
 			try {
 				const config =
 					getServerOAuthConfig()[
@@ -151,6 +200,24 @@ export async function POST(request: NextRequest) {
 					scope: tokenData.scope || "",
 					expires_at: Date.now() + (tokenData.expires_in || 28800) * 1000,
 				};
+
+				// If we have a refresh token, we need to fetch the existing user record
+				// to properly link the new tokens.
+				if (user_id) {
+					const userResponse = await fetch(
+						`http://localhost:4000/users/${user_id}`,
+					);
+					if (!userResponse.ok) {
+						return NextResponse.json(
+							{ error: "User not found for token refresh" },
+							{ status: 404 },
+						);
+					}
+					const user = await userResponse.json();
+
+					// Save the newly refreshed tokens to the database
+					await saveOrUpdateTokenInDb(tokens, user.id, user.provider);
+				}
 
 				// Return the new tokens
 				return NextResponse.json({
@@ -249,7 +316,27 @@ export async function POST(request: NextRequest) {
 		let userProfile: UserProfile;
 
 		switch (provider) {
-			case "discord": {
+			case "google":
+				userProfile = {
+					id: userData.sub,
+					name: userData.name,
+					email: userData.email,
+					avatar: userData.picture,
+					provider: "google",
+					raw_data: userData,
+				};
+				break;
+			case "github":
+				userProfile = {
+					id: String(userData.id),
+					name: userData.name || userData.login,
+					email: userData.email,
+					avatar: userData.avatar_url,
+					provider: "github",
+					raw_data: userData,
+				};
+				break;
+			case "discord":
 				userProfile = {
 					id: userData.id,
 					name: userData.global_name || userData.username,
@@ -261,54 +348,6 @@ export async function POST(request: NextRequest) {
 					raw_data: userData,
 				};
 				break;
-			}
-			case "google": {
-				userProfile = {
-					id: userData.sub,
-					name: userData.name,
-					email: userData.email,
-					avatar: userData.picture,
-					provider: "google",
-					raw_data: userData,
-				};
-				break;
-			}
-
-			case "github": {
-				// GitHub might need a separate call for email if not public
-				let email = userData.email;
-				if (!email) {
-					try {
-						const emailResponse = await fetch(
-							"https://api.github.com/user/emails",
-							{
-								headers: {
-									Authorization: `${tokens.token_type} ${tokens.access_token}`,
-									Accept: "application/json",
-									"User-Agent": "OAuth-Learning-System/1.0",
-								},
-							},
-						);
-						if (emailResponse.ok) {
-							const emails = await emailResponse.json();
-							const primaryEmail = emails.find((e: any) => e.primary);
-							email = primaryEmail?.email || emails[0]?.email;
-						}
-					} catch (e) {
-						console.error("Could not fetch github email", e);
-					}
-				}
-
-				userProfile = {
-					id: userData.id.toString(),
-					name: userData.name || userData.login,
-					email: email,
-					avatar: userData.avatar_url,
-					provider: "github",
-					raw_data: userData,
-				};
-				break;
-			}
 			default:
 				return NextResponse.json(
 					{ error: "Invalid provider" },
@@ -317,24 +356,22 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Save user to our local DB
-		await saveUserToDb(userProfile);
+		const savedUser = await saveUserToDb(userProfile);
 
-		// Create user session
+		// Save tokens to our local DB
+		await saveOrUpdateTokenInDb(tokens, savedUser.id, savedUser.provider);
+
+		// Create the full user session object to return to the client
 		const session: UserSession = {
-			user: userProfile,
+			user: savedUser,
 			tokens,
 			created_at: Date.now(),
 			updated_at: Date.now(),
 		};
 
-		// Return the session data
-		return NextResponse.json({
-			session,
-			success: true,
-			message: "Authentication successful",
-		});
+		return NextResponse.json(session);
 	} catch (error) {
-		console.error("OAuth token exchange error:", error);
+		console.error("OAuth flow error:", error);
 		return NextResponse.json(
 			{ error: "Internal server error" },
 			{ status: 500 },

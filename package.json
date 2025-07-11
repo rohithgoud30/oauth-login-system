@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-		"dev:all": "concurrently \"npm run json-server\" \"npm run dev\"",
+    "dev:all": "concurrently \"npm run json-server\" \"npm run dev\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-		"json-server": "json-server --watch db.json --port 4000"
+    "json-server": "json-server --watch db.json --port 4000"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -56,14 +56,14 @@
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
-		"zod": "^3.23.8"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-		"@types/node": "^20",
-		"@types/react": "^18",
-		"@types/react-dom": "^18",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "autoprefixer": "^10.4.21",
-		"concurrently": "^8.2.2",
+    "concurrently": "^8.2.2",
     "json-server": "^0.17.4",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.6",

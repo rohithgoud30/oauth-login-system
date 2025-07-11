@@ -86,7 +86,11 @@ export class TokenManager {
 		if (this.isTokenExpired(session.tokens)) {
 			// Try to refresh the token if we have a refresh token
 			if (session.tokens.refresh_token) {
-				this.refreshToken(session.tokens.refresh_token, session.user.provider)
+				this.refreshToken(
+					session.tokens.refresh_token,
+					session.user.provider,
+					session.user.id,
+				)
 					.then((newTokens) => {
 						if (newTokens) {
 							// Update session with new tokens
@@ -241,6 +245,7 @@ export class TokenManager {
 					const newTokens = await this.refreshToken(
 						userSession.tokens.refresh_token,
 						userSession.user.provider,
+						userSession.user.id,
 					);
 					if (newTokens) {
 						// Update session with new tokens
@@ -283,6 +288,7 @@ export class TokenManager {
 	async refreshToken(
 		refreshToken: string,
 		provider: string,
+		userId: string,
 	): Promise<TokenData | null> {
 		if (typeof window === "undefined") return null;
 
@@ -293,8 +299,10 @@ export class TokenManager {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
+					grant_type: "refresh_token",
 					refresh_token: refreshToken,
 					provider: provider,
+					user_id: userId,
 				}),
 			});
 
@@ -327,6 +335,7 @@ export class TokenManager {
 			const newTokens = await this.refreshToken(
 				session.tokens.refresh_token,
 				session.user.provider,
+				session.user.id,
 			);
 			if (newTokens) {
 				const updatedSession = {
