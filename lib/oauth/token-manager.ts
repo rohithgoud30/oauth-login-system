@@ -134,6 +134,7 @@ export class TokenManager {
 			sessionStorage.removeItem(CLIENT_SESSION_KEY);
 			sessionStorage.removeItem(STATE_KEY);
 			sessionStorage.removeItem(PROVIDER_KEY);
+			sessionStorage.removeItem("oauth_auth_code"); // Clear auth code on logout
 		}
 	}
 
