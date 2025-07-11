@@ -299,7 +299,9 @@ export async function POST(request: NextRequest) {
 			// GitHub returns a query string on success, so we need to handle that
 			if (responseText.startsWith("access_token=")) {
 				const parsed = new URLSearchParams(responseText);
-				tokenData = Object.fromEntries(parsed.entries()) as RawTokenData;
+				tokenData = Object.fromEntries(
+					parsed.entries(),
+				) as unknown as RawTokenData;
 			} else {
 				// Other providers return JSON
 				tokenData = JSON.parse(responseText);
@@ -379,6 +381,32 @@ export async function POST(request: NextRequest) {
 					provider: "github",
 					raw_data: userInfo,
 				};
+				// If email is null, try to fetch from /user/emails endpoint
+				if (!userProfile.email) {
+					try {
+						const emailsResponse = await fetch(
+							"https://api.github.com/user/emails",
+							{
+								headers: {
+									Authorization: `${tokens.token_type} ${tokens.access_token}`,
+									Accept: "application/json",
+									"User-Agent": "OAuth-Learning-System/1.0",
+								},
+							},
+						);
+						if (emailsResponse.ok) {
+							const emails = await emailsResponse.json();
+							const primaryEmail = emails.find(
+								(email: { primary: boolean; email: string }) => email.primary,
+							);
+							if (primaryEmail) {
+								userProfile.email = primaryEmail.email;
+							}
+						}
+					} catch (error) {
+						console.error("Failed to fetch GitHub emails:", error);
+					}
+				}
 				break;
 			case "discord":
 				userProfile = {
