@@ -153,30 +153,10 @@ export function TokenDisplay({
 		}
 	};
 
-	const getFullScope = (provider: string | null, scope: string): string[] => {
-		const scopeItems = scope.split(" ").filter(Boolean);
-
-		if (provider === "google") {
-			return scopeItems.map((s) => {
-				switch (s) {
-					case "openid":
-						return "openid";
-					case "profile":
-						return "https://www.googleapis.com/auth/userinfo.profile";
-					case "email":
-						return "https://www.googleapis.com/auth/userinfo.email";
-					default:
-						return s;
-				}
-			});
-		}
-		return scopeItems;
-	};
-
 	const displayScopes =
 		provider === "github" && !tokens.scope
 			? ["user:email", "read:user"]
-			: getFullScope(provider, tokens.scope);
+			: tokens.scope.split(" ").filter(Boolean).sort();
 
 	return (
 		<Card>
