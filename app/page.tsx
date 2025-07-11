@@ -8,14 +8,10 @@ export default function HomePage() {
 	const router = useRouter();
 
 	useEffect(() => {
-		// Check if user has valid session (both OAuth tokens and client session)
-		if (tokenManager.hasValidSession()) {
-			// User has valid session, redirect to dashboard
-			router.replace("/dashboard");
-		} else {
-			// No valid session, redirect to login
-			router.replace("/login");
-		}
+		// Clear any existing session to ensure user logs in every time.
+		tokenManager.clearSession();
+		// Redirect to login page.
+		router.replace("/login");
 	}, [router]);
 
 	// Show loading while checking session
