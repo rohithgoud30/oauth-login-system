@@ -39,7 +39,8 @@ export interface TokenVerificationStatus {
 	error?: string;
 }
 
-const SESSION_KEY = "oauth_session";
+const USER_PROFILE_KEY = "oauth_user_profile";
+const TOKEN_DATA_KEY = "oauth_token_data";
 const CLIENT_SESSION_KEY = "client_session";
 const STATE_KEY = "oauth_state";
 const PROVIDER_KEY = "oauth_provider";
@@ -62,36 +63,43 @@ export class TokenManager {
 	// Session management
 	saveSession(session: UserSession): void {
 		if (typeof window !== "undefined") {
-			const existingSession = this.getSessionFromStorage();
-			if (
-				existingSession &&
-				!session.tokens.refresh_token &&
-				existingSession.tokens.refresh_token
-			) {
-				session.tokens.refresh_token = existingSession.tokens.refresh_token;
-			}
-			sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-			// Create client session when saving user session
-			this.createClientSession(session.user.id);
+			const { user, tokens, created_at, updated_at } = session;
+
+			// Store user profile in localStorage
+			localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(user));
+
+			// Store tokens and session metadata in sessionStorage
+			const tokenDataPayload = { tokens, created_at, updated_at };
+			sessionStorage.setItem(TOKEN_DATA_KEY, JSON.stringify(tokenDataPayload));
+			this.createClientSession(user.id);
 		}
 	}
 
 	getSession(): UserSession | null {
 		if (typeof window === "undefined") return null;
 
-		const session = this.getSessionFromStorage();
-		if (!session) return null;
+		try {
+			const userProfileData = localStorage.getItem(USER_PROFILE_KEY);
+			const tokenDataPayload = sessionStorage.getItem(TOKEN_DATA_KEY);
 
-		// Check if token is expired
-		if (this.isTokenExpired(session.tokens)) {
-			// Try to refresh the token if we have a refresh token
-			if (session.tokens.refresh_token) {
-				this.refreshToken(
-					session.tokens.refresh_token,
-					session.user.provider,
-					session.user.id,
-				)
-					.then((newTokens) => {
+			if (!userProfileData || !tokenDataPayload) {
+				return null;
+			}
+
+			const user: UserProfile = JSON.parse(userProfileData);
+			const { tokens, created_at, updated_at } = JSON.parse(tokenDataPayload);
+
+			const session: UserSession = { user, tokens, created_at, updated_at };
+
+			// Check if token is expired
+			if (this.isTokenExpired(session.tokens)) {
+				// Try to refresh the token if we have a refresh token
+				if (session.tokens.refresh_token) {
+					this.refreshToken(
+						session.tokens.refresh_token,
+						session.user.provider,
+						session.user.id,
+					).then((newTokens) => {
 						if (newTokens) {
 							// Update session with new tokens
 							const updatedSession = {
@@ -104,17 +112,19 @@ export class TokenManager {
 							// If refresh failed, clear session
 							this.clearSession();
 						}
-					})
-					.catch(() => {
-						this.clearSession();
 					});
-			} else {
-				this.clearSession();
+				} else {
+					this.clearSession();
+				}
+				return null;
 			}
+
+			return session;
+		} catch (error) {
+			console.error("Error parsing session from storage:", error);
+			this.clearSession();
 			return null;
 		}
-
-		return session;
 	}
 
 	getSessionFromStorage(): UserSession | null {
@@ -131,7 +141,8 @@ export class TokenManager {
 
 	clearSession(): void {
 		if (typeof window !== "undefined") {
-			sessionStorage.removeItem(SESSION_KEY);
+			localStorage.removeItem(USER_PROFILE_KEY);
+			sessionStorage.removeItem(TOKEN_DATA_KEY);
 			sessionStorage.removeItem(CLIENT_SESSION_KEY);
 			sessionStorage.removeItem(STATE_KEY);
 			sessionStorage.removeItem(PROVIDER_KEY);
@@ -203,14 +214,19 @@ export class TokenManager {
 	hasSynchronousSession(): boolean {
 		if (typeof window === "undefined") return false;
 
-		const session = this.getSessionFromStorage();
-		if (!session) return false;
+		try {
+			const userProfileData = localStorage.getItem(USER_PROFILE_KEY);
+			const tokenDataPayload = sessionStorage.getItem(TOKEN_DATA_KEY);
 
-		const clientSession = this.getClientSession();
-		if (!clientSession || !clientSession.isValid) return false;
+			if (!userProfileData || !tokenDataPayload) {
+				return false;
+			}
 
-		// This check is purely synchronous and does not attempt a refresh.
-		return !this.isTokenExpired(session.tokens);
+			const { tokens } = JSON.parse(tokenDataPayload);
+			return !this.isTokenExpired(tokens);
+		} catch {
+			return false;
+		}
 	}
 
 	// Verify token with the OAuth provider directly using our API
@@ -344,7 +360,7 @@ export class TokenManager {
 
 	// Manual refresh token method (for UI button)
 	async manualRefreshToken(): Promise<boolean> {
-		const session = this.getSessionFromStorage();
+		const session = this.getSession();
 		if (session && session.tokens.refresh_token) {
 			const newTokens = await this.refreshToken(
 				session.tokens.refresh_token,
