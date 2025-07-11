@@ -36,11 +36,13 @@ import { UserCard } from "@/components/ui/user-card";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { InactivityTimeoutModal } from "@/components/ui/inactivity-modal";
 import { LogoutModal } from "@/components/ui/logout-modal";
+import { DashboardSkeleton } from "@/components/ui/dashboard-skeleton";
 
 export function DashboardContent() {
 	const router = useRouter();
 	const [session, setSession] = useState<UserSession | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState<string | null>(null);
 	const [authCode, setAuthCode] = useState<string | null>(null);
 	const [expandedSteps, setExpandedSteps] = useState<{
@@ -106,8 +108,9 @@ export function DashboardContent() {
 		resetTimer();
 	}, [session, handleLogout, resetTimer]);
 
-	useEffect(() => {
-		const checkAndSetSession = async () => {
+	const validateSession = useCallback(async () => {
+		setLoading(true);
+		try {
 			// Get comprehensive verification status
 			const verificationStatus =
 				await tokenManager.getTokenVerificationStatus();
@@ -135,34 +138,46 @@ export function DashboardContent() {
 			}
 
 			setLoading(false);
-		};
-
-		checkAndSetSession();
-
-		// Set up interval to check session validity every 30 seconds
-		const sessionCheckInterval = setInterval(async () => {
-			const verificationStatus =
-				await tokenManager.getTokenVerificationStatus();
-
-			if (!verificationStatus.verified) {
-				// Session is no longer valid - handled by useSessionTimeout hook
-				console.log("Session verification failed");
-			} else {
-				// Update verification method if it changed
-				setVerificationMethod(verificationStatus.method);
-			}
-		}, 30000); // Check every 30 seconds
-
-		return () => clearInterval(sessionCheckInterval);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "An unknown error occurred.");
+			setTimeout(() => router.push("/login"), 2000);
+		} finally {
+			setLoading(false);
+		}
 	}, [router]);
+
+	// Perform a fast, synchronous check on initial load
+	useEffect(() => {
+		if (!tokenManager.hasSynchronousSession()) {
+			router.replace("/login");
+		} else {
+			// If synchronous check passes, proceed with full validation
+			validateSession();
+		}
+	}, [router, validateSession]);
+
+	const handleManualRefresh = async () => {
+		try {
+			const refreshed = await tokenManager.manualRefreshToken();
+			if (refreshed) {
+				const newSession = tokenManager.getSession();
+				setSession(newSession);
+				alert("Token refreshed successfully!");
+			} else {
+				alert("Failed to refresh token.");
+			}
+		} catch (error) {
+			alert(`Error refreshing token: ${error}`);
+		}
+	};
 
 	const copyToClipboard = async (text: string, label: string) => {
 		try {
 			await navigator.clipboard.writeText(text);
 			setCopied(label);
 			setTimeout(() => setCopied(null), 2000);
-		} catch (error) {
-			console.error("Failed to copy:", error);
+		} catch (err) {
+			console.error("Failed to copy:", err);
 		}
 	};
 
@@ -195,18 +210,7 @@ export function DashboardContent() {
 		return `${minutes}m`;
 	};
 
-	// Handle token refresh
-	const handleTokenRefresh = (newTokens: any) => {
-		if (session) {
-			setSession({
-				...session,
-				tokens: newTokens,
-				updated_at: Date.now(),
-			});
-		}
-	};
-
-	if (loading) {
+	if (loading && !session) {
 		return (
 			<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6">
 				<div className="text-center space-y-4">
@@ -216,6 +220,26 @@ export function DashboardContent() {
 					<p className="text-lg font-medium text-blue-800">
 						Loading dashboard...
 					</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6">
+				<div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full">
+					<p className="text-center text-lg font-medium text-red-600 mb-4">
+						{error}
+					</p>
+					<p className="text-center text-gray-600 mb-6">
+						You will be redirected to the login page shortly.
+					</p>
+					<div className="flex justify-center">
+						<Button onClick={() => router.push("/login")} className="w-full">
+							Return to Login
+						</Button>
+					</div>
 				</div>
 			</div>
 		);
@@ -309,7 +333,7 @@ export function DashboardContent() {
 					{/* Token Display with Refresh Button */}
 					<TokenDisplay
 						tokens={session.tokens}
-						onRefresh={handleTokenRefresh}
+						onRefresh={handleManualRefresh}
 					/>
 				</div>
 

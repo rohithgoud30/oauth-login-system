@@ -199,6 +199,20 @@ export class TokenManager {
 		);
 	}
 
+	// New synchronous-only check for UI responsiveness
+	hasSynchronousSession(): boolean {
+		if (typeof window === "undefined") return false;
+
+		const session = this.getSessionFromStorage();
+		if (!session) return false;
+
+		const clientSession = this.getClientSession();
+		if (!clientSession || !clientSession.isValid) return false;
+
+		// This check is purely synchronous and does not attempt a refresh.
+		return !this.isTokenExpired(session.tokens);
+	}
+
 	// Verify token with the OAuth provider directly using our API
 	async verifyTokenWithAPI(
 		tokens: TokenData,

@@ -113,7 +113,7 @@ export function CallbackContent() {
 				}
 
 				// Save session and redirect
-				tokenManager.saveSession(data.session);
+				tokenManager.saveSession(data);
 				// Client session is automatically created in saveSession method
 				tokenManager.clearState();
 
