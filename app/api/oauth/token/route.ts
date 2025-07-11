@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { cache } from "react";
+import { getClientOAuthConfig, type OAuthConfig } from "@/lib/oauth/providers";
 
 interface TokenData {
 	access_token: string;
@@ -25,6 +26,14 @@ interface UserSession {
 	tokens: TokenData;
 	created_at: number;
 	updated_at: number;
+}
+
+interface RawTokenData {
+	access_token: string;
+	refresh_token?: string;
+	expires_in?: number;
+	token_type?: string;
+	scope?: string;
 }
 
 // Function to save user data to our local DB
@@ -197,7 +206,11 @@ export async function POST(request: NextRequest) {
 					refresh_token: tokenData.refresh_token || refresh_token,
 					expires_in: tokenData.expires_in || 28800, // 8 hours
 					token_type: tokenData.token_type || "Bearer",
-					scope: tokenData.scope || "",
+					scope:
+						tokenData.scope ||
+						getClientOAuthConfig()[provider as keyof OAuthConfig].scopes.join(
+							" ",
+						),
 					expires_at: Date.now() + (tokenData.expires_in || 28800) * 1000,
 				};
 
@@ -250,67 +263,98 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
 		}
 
-		const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-		// Exchange authorization code for access token
-		const tokenParams = new URLSearchParams({
+		const params = new URLSearchParams({
 			client_id: config.clientId,
 			client_secret: config.clientSecret,
-			code,
+			code: code,
+			redirect_uri: `${
+				process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+			}/callback`,
 			grant_type: "authorization_code",
-			redirect_uri: `${baseUrl}/callback`,
 		});
 
 		const tokenResponse = await fetch(config.tokenUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/x-www-form-urlencoded",
-				Accept: "application/json",
+				Accept: "application/json", // Important for GitHub to return JSON
 				"User-Agent": "OAuth-Learning-System/1.0",
 			},
-			body: tokenParams.toString(),
+			body: params.toString(),
 		});
 
 		if (!tokenResponse.ok) {
 			const errorText = await tokenResponse.text();
 			console.error(`${provider} token exchange failed:`, errorText);
 			return NextResponse.json(
-				{ error: "Token exchange failed" },
+				{ error: "Token exchange failed", details: errorText },
 				{ status: 400 },
 			);
 		}
 
-		const tokenData = await tokenResponse.json();
+		let tokenData: RawTokenData;
+		const responseText = await tokenResponse.text();
+
+		try {
+			// GitHub returns a query string on success, so we need to handle that
+			if (responseText.startsWith("access_token=")) {
+				const parsed = new URLSearchParams(responseText);
+				tokenData = Object.fromEntries(parsed.entries()) as RawTokenData;
+			} else {
+				// Other providers return JSON
+				tokenData = JSON.parse(responseText);
+			}
+		} catch (error) {
+			console.error("Failed to parse token response:", error);
+			return NextResponse.json(
+				{ error: "Failed to parse token response" },
+				{ status: 500 },
+			);
+		}
 
 		// Normalize token data
 		const tokens: TokenData = {
 			access_token: tokenData.access_token,
 			refresh_token: tokenData.refresh_token,
-			expires_in: tokenData.expires_in || 28800, // 8 hours
+			expires_in: tokenData.expires_in || 3600, // Default 1 hour
 			token_type: tokenData.token_type || "Bearer",
-			scope: tokenData.scope || "",
-			expires_at: Date.now() + (tokenData.expires_in || 28800) * 1000,
+			scope:
+				tokenData.scope ||
+				getClientOAuthConfig()[provider as keyof OAuthConfig].scopes.join(" "),
+			expires_at: Date.now() + (tokenData.expires_in || 3600) * 1000,
 		};
 
-		// Fetch user profile
-		const userResponse = await fetch(config.userInfoUrl, {
-			headers: {
-				Authorization: `${tokens.token_type} ${tokens.access_token}`,
-				Accept: "application/json",
-				"User-Agent": "OAuth-Learning-System/1.0",
-			},
-		});
+		// Step 2: Get user info from provider
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		let userInfo: any;
 
-		if (!userResponse.ok) {
-			const errorText = await userResponse.text();
-			console.error(`${provider} user fetch failed:`, errorText);
+		try {
+			// Fetch user info from provider API
+			const userResponse = await fetch(config.userInfoUrl, {
+				headers: {
+					Authorization: `${tokens.token_type} ${tokens.access_token}`,
+					Accept: "application/json",
+					"User-Agent": "OAuth-Learning-System/1.0",
+				},
+			});
+
+			if (!userResponse.ok) {
+				const errorText = await userResponse.text();
+				console.error(`${provider} user fetch failed:`, errorText);
+				return NextResponse.json(
+					{ error: "Failed to fetch user profile" },
+					{ status: 400 },
+				);
+			}
+
+			userInfo = await userResponse.json();
+		} catch (error) {
+			console.error(`${provider} user info fetch failed:`, error);
 			return NextResponse.json(
 				{ error: "Failed to fetch user profile" },
 				{ status: 400 },
 			);
 		}
-
-		const userData = await userResponse.json();
 
 		// Normalize user profile based on provider
 		let userProfile: UserProfile;
@@ -318,34 +362,34 @@ export async function POST(request: NextRequest) {
 		switch (provider) {
 			case "google":
 				userProfile = {
-					id: userData.sub,
-					name: userData.name,
-					email: userData.email,
-					avatar: userData.picture,
+					id: userInfo.sub,
+					name: userInfo.name,
+					email: userInfo.email,
+					avatar: userInfo.picture,
 					provider: "google",
-					raw_data: userData,
+					raw_data: userInfo,
 				};
 				break;
 			case "github":
 				userProfile = {
-					id: String(userData.id),
-					name: userData.name || userData.login,
-					email: userData.email,
-					avatar: userData.avatar_url,
+					id: String(userInfo.id),
+					name: userInfo.name || userInfo.login,
+					email: userInfo.email,
+					avatar: userInfo.avatar_url,
 					provider: "github",
-					raw_data: userData,
+					raw_data: userInfo,
 				};
 				break;
 			case "discord":
 				userProfile = {
-					id: userData.id,
-					name: userData.global_name || userData.username,
-					email: userData.email,
-					avatar: userData.avatar
-						? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
+					id: userInfo.id,
+					name: userInfo.global_name || userInfo.username,
+					email: userInfo.email,
+					avatar: userInfo.avatar
+						? `https://cdn.discordapp.com/avatars/${userInfo.id}/${userInfo.avatar}.png`
 						: undefined,
 					provider: "discord",
-					raw_data: userData,
+					raw_data: userInfo,
 				};
 				break;
 			default:
