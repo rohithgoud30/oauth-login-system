@@ -127,18 +127,6 @@ export class TokenManager {
 		}
 	}
 
-	getSessionFromStorage(): UserSession | null {
-		if (typeof window === "undefined") return null;
-		try {
-			const sessionData = sessionStorage.getItem(SESSION_KEY);
-			return sessionData ? JSON.parse(sessionData) : null;
-		} catch (error) {
-			console.error("Error parsing session from storage:", error);
-			this.clearSession();
-			return null;
-		}
-	}
-
 	clearSession(): void {
 		if (typeof window !== "undefined") {
 			localStorage.removeItem(USER_PROFILE_KEY);
