@@ -39,7 +39,7 @@ export interface TokenVerificationStatus {
 	error?: string;
 }
 
-const USER_PROFILE_KEY = "oauth_user_profile";
+const USER_PROFILE_KEY = "user_profile";
 const TOKEN_DATA_KEY = "oauth_token_data";
 const CLIENT_SESSION_KEY = "client_session";
 const STATE_KEY = "oauth_state";
