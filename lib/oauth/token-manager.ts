@@ -70,7 +70,7 @@ export class TokenManager {
 			) {
 				session.tokens.refresh_token = existingSession.tokens.refresh_token;
 			}
-			localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+			sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 			// Create client session when saving user session
 			this.createClientSession(session.user.id);
 		}
@@ -120,7 +120,7 @@ export class TokenManager {
 	getSessionFromStorage(): UserSession | null {
 		if (typeof window === "undefined") return null;
 		try {
-			const sessionData = localStorage.getItem(SESSION_KEY);
+			const sessionData = sessionStorage.getItem(SESSION_KEY);
 			return sessionData ? JSON.parse(sessionData) : null;
 		} catch (error) {
 			console.error("Error parsing session from storage:", error);
@@ -131,8 +131,8 @@ export class TokenManager {
 
 	clearSession(): void {
 		if (typeof window !== "undefined") {
-			localStorage.removeItem(SESSION_KEY);
-			localStorage.removeItem(CLIENT_SESSION_KEY);
+			sessionStorage.removeItem(SESSION_KEY);
+			sessionStorage.removeItem(CLIENT_SESSION_KEY);
 			sessionStorage.removeItem(STATE_KEY);
 			sessionStorage.removeItem(PROVIDER_KEY);
 		}
@@ -147,7 +147,7 @@ export class TokenManager {
 				expires_at: Date.now() + CLIENT_SESSION_DURATION,
 				user_id: userId,
 			};
-			localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(clientSession));
+			sessionStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(clientSession));
 		}
 	}
 
@@ -155,7 +155,7 @@ export class TokenManager {
 		if (typeof window === "undefined") return null;
 
 		try {
-			const sessionData = localStorage.getItem(CLIENT_SESSION_KEY);
+			const sessionData = sessionStorage.getItem(CLIENT_SESSION_KEY);
 			if (!sessionData) return null;
 
 			const clientSession: ClientSession = JSON.parse(sessionData);
@@ -176,7 +176,7 @@ export class TokenManager {
 
 	clearClientSession(): void {
 		if (typeof window !== "undefined") {
-			localStorage.removeItem(CLIENT_SESSION_KEY);
+			sessionStorage.removeItem(CLIENT_SESSION_KEY);
 		}
 	}
 
