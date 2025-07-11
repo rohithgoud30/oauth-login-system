@@ -170,13 +170,9 @@ export function DashboardContent() {
 			if (refreshed) {
 				const newSession = tokenManager.getSession();
 				setSession(newSession);
-				alert("Token refreshed successfully!");
 			} else {
-				alert("Failed to refresh token.");
 			}
-		} catch (error) {
-			alert(`Error refreshing token: ${error}`);
-		}
+		} catch (error) {}
 	};
 
 	const copyToClipboard = async (text: string, label: string) => {
