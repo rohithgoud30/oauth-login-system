@@ -156,6 +156,14 @@ export function DashboardContent() {
 		}
 	}, [router, validateSession]);
 
+	// One-time cleanup of old localStorage keys
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			localStorage.removeItem("oauth_session");
+			localStorage.removeItem("client_session");
+		}
+	}, []);
+
 	const handleManualRefresh = async () => {
 		try {
 			const refreshed = await tokenManager.manualRefreshToken();
