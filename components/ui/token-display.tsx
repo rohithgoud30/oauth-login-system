@@ -113,6 +113,7 @@ export function TokenDisplay({
 				body: JSON.stringify({
 					refresh_token: tokens.refresh_token,
 					provider: session.user.provider,
+					user_id: session.user.id,
 				}),
 			});
 
