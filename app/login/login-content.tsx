@@ -46,15 +46,15 @@ export function LoginContent() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
 			<div className="w-full max-w-6xl space-y-8">
 				{/* Header Section */}
 				<div className="text-center space-y-4">
-					<div className="flex justify-center items-center gap-3 mb-4">
+					<div className="flex flex-col sm:flex-row justify-center items-center gap-4">
 						<div className="p-3 bg-blue-600 rounded-full">
 							<Shield className="h-8 w-8 text-white" />
 						</div>
-						<h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+						<h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-center sm:text-left">
 							OAuth 2.0 Login System
 						</h1>
 					</div>

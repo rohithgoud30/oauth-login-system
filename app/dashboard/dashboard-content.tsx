@@ -275,18 +275,21 @@ export function DashboardContent() {
 	const isClientSessionValid = tokenManager.isClientSessionValid();
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 sm:p-6">
 			<div className="container mx-auto space-y-6">
-				<div className="flex items-center justify-between">
+				<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
 					<div>
-						<h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+						<h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+							Dashboard
+						</h1>
 						<p className="text-muted-foreground">
 							OAuth authentication dashboard for {session.user.name}
 						</p>
 					</div>
-					<div className="flex items-center gap-3">
+					<div className="flex items-center gap-2 flex-wrap justify-start md:justify-end w-full md:w-auto">
 						<Button onClick={startCountdown} variant="secondary">
-							Demo Inactivity
+							<Clock className="h-4 w-4 sm:mr-2" />
+							<span className="hidden sm:inline">Demo Inactivity</span>
 						</Button>
 						<Button
 							onClick={() => {
@@ -294,7 +297,8 @@ export function DashboardContent() {
 							}}
 							variant="destructive"
 						>
-							Demo Client Session Expired
+							<LogOut className="h-4 w-4 sm:mr-2" />
+							<span className="hidden sm:inline">Client Session Expired</span>
 						</Button>
 						<Button
 							onClick={() => {
@@ -306,7 +310,7 @@ export function DashboardContent() {
 							className="flex items-center gap-2"
 						>
 							<LogOut className="h-4 w-4" />
-							Logout
+							<span className="hidden sm:inline">Logout</span>
 						</Button>
 					</div>
 				</div>
@@ -926,7 +930,7 @@ export function DashboardContent() {
 											</div>
 										)}
 
-										<div className="grid grid-cols-2 gap-4 text-xs">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
 											<div className="bg-white p-3 rounded border">
 												<p className="font-medium">
 													Token Type:{" "}
@@ -1016,7 +1020,7 @@ export function DashboardContent() {
 												</p>
 											</div>
 										</div>
-										<div className="grid grid-cols-2 gap-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 											<div className="bg-white p-3 rounded border">
 												<p className="text-xs font-medium">👤 User ID:</p>
 												<p className="text-xs font-mono bg-gray-100 p-2 rounded mt-1">
