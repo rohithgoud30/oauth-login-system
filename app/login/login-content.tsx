@@ -61,10 +61,12 @@ export function LoginContent() {
 				</div>
 
 				{/* OAuth Providers */}
-				<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-					<LoginButton provider="discord" />
-					<LoginButton provider="github" />
-					<LoginButton provider="google" />
+				<div className="flex justify-center">
+					<div className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+						<LoginButton provider="discord" />
+						<LoginButton provider="github" />
+						<LoginButton provider="google" />
+					</div>
 				</div>
 			</div>
 		</div>
