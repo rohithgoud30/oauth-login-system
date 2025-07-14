@@ -20,6 +20,33 @@ You can start editing the page by modifying `app/page.js`. The page auto-updates
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+To run this project, you need to set up your environment variables.
+
+1.  Create a file named `.env.local` in the root of the project.
+2.  Copy the following content into `.env.local` and replace the placeholder values with your actual credentials.
+
+```
+# Discord OAuth
+DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
+
+# App Configuration
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
@@ -34,4 +61,3 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# oauth-login-system
